@@ -6,8 +6,6 @@
 <!-- Micro_Clicks_001.wav by AlienXXX -- https://freesound.org/s/273833/ -- License: Attribution 4.0 -->
 
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-D9YF31VXSD"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag() { dataLayer.push(arguments); }
@@ -113,10 +111,13 @@
           .then(csvText => {
             Papa.parse(csvText, {
               header: true,
+              skipEmptyLines: "greedy",
               complete: function (results) {
+                const cleaned = cleanRows(results.data);
+            
                 title.style.display = 'none';
                 fileInput.style.display = 'none';
-                buildBoard(results.data);
+                buildBoard(cleaned);
               }
             });
           })
@@ -126,18 +127,49 @@
       }
     });
 
-    function parseAndBuild(file) {
-      Papa.parse(file, {
+    function cleanRows(rows) {
+      return rows
+        .map((row) => {
+          // Trim headers/values defensively (handles weird whitespace/CR chars)
+          const Category = (row.Category ?? "").trim();
+          const ValueRaw = (row.Value ?? "").toString().trim();
+          const Clue = (row.Clue ?? "").trim();
+          const Answer = (row.Answer ?? "").trim();
+    
+          // Must have these
+          if (!Category || !ValueRaw) return null;
+    
+          // Value must be numeric
+          const Value = Number(ValueRaw);
+          if (!Number.isFinite(Value)) return null;
+    
+          return { Category, Value, Clue, Answer };
+        })
+        .filter(Boolean);
+    }
+    
+    function parseAndBuild(fileOrCsvText) {
+      Papa.parse(fileOrCsvText, {
         header: true,
+        skipEmptyLines: "greedy",              // strongest skip mode :contentReference[oaicite:2]{index=2}
+        transformHeader: (h) => h.trim(),      // avoids "Value\r" type bugs
+        transform: (v) => (typeof v === "string" ? v.trim() : v),
         complete: function (results) {
-          title.style.display = 'none';
-          fileInput.style.display = 'none';
-          buildBoard(results.data);
+          const data = cleanRows(results.data);
+    
+          title.style.display = "none";
+          fileInput.style.display = "none";
+    
+          buildBoard(data);
+        },
+        error: function (err) {
+          alert("CSV parse error: " + err.message);
         }
       });
     }
 
-    fileInput.addEventListener('change', function (event) {
+    
+    fileInput.addEventListener("change", (event) => {
       const file = event.target.files[0];
       if (file) parseAndBuild(file);
     });
@@ -157,32 +189,33 @@
 
     function buildBoard(data) {
       boardData = {};
-      data.forEach(row => {
-        const { Category, Value, Clue, Answer } = row;
+    
+      data.forEach(({ Category, Value, Clue, Answer }) => {
         if (!boardData[Category]) boardData[Category] = {};
         boardData[Category][Value] = { clue: Clue, answer: Answer };
       });
-
-      const values = [...new Set(data.map(r => r.Value))].sort((a, b) => +a - +b);
+    
+      const values = [...new Set(data.map(r => r.Value))].sort((a, b) => a - b);
       const categories = Object.keys(boardData);
 
+      console.log("last row", values);
+      console.log("last row", categories);
+    
       let html = '<table><tr>';
       categories.forEach(cat => html += `<th>${cat}</th>`);
       html += '</tr>';
-
+    
       values.forEach(val => {
         html += '<tr>';
-        categories.forEach(cat => {
-          const cellData = boardData[cat][val];
-          if (cellData) {
-            html += `<td data-cat="${cat}" data-val="${val}">$${val}</td>`;
-          } else {
-            html += '<td></td>';
-          }
+        categories.forEach(cat => {c
+          const cellData = boardData[cat][String(val)];
+          html += cellData
+            ? `<td data-cat="${cat}" data-val="${val}">$${val}</td>`
+            : '<td></td>';
         });
         html += '</tr>';
       });
-
+    
       html += '</table>';
       gameDiv.innerHTML = html;
 
