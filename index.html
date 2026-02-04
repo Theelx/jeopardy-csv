@@ -190,58 +190,56 @@
     function buildBoard(data) {
       boardData = {};
     
-      data.forEach(({ Category, Value, Clue, Answer }) => {
+      data.forEach(row => {
+        const { Category, Value, Clue, Answer } = row;
         if (!boardData[Category]) boardData[Category] = {};
         boardData[Category][Value] = { clue: Clue, answer: Answer };
       });
     
-      const values = [...new Set(data.map(r => r.Value))].sort((a, b) => a - b);
       const categories = Object.keys(boardData);
-
-      console.log("last row", values);
-      console.log("last row", categories);
+      const values = [...new Set(data.map(r => Number(r.Value)))]
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
     
-      let html = '<table><tr>';
-      categories.forEach(cat => html += `<th>${cat}</th>`);
-      html += '</tr>';
+      let html = "<table><tr>";
+      categories.forEach(cat => (html += `<th>${cat}</th>`));
+      html += "</tr>";
     
       values.forEach(val => {
-        html += '<tr>';
-        categories.forEach(cat => {c
-          const cellData = boardData[cat][String(val)];
+        html += "<tr>";
+        categories.forEach(cat => {
+          const cellData = boardData[cat][String(val)] ?? boardData[cat][val];
           html += cellData
             ? `<td data-cat="${cat}" data-val="${val}">$${val}</td>`
-            : '<td></td>';
+            : "<td></td>";
         });
-        html += '</tr>';
+        html += "</tr>";
       });
     
-      html += '</table>';
+      html += "</table>";
       gameDiv.innerHTML = html;
-
-      // create team boxes and scoring widgets 
-      renderTeamBoxContainer(teams); // teamBox.js
-
-      // selecting a tile
-      document.querySelectorAll('td[data-cat]').forEach(td => {
-        td.addEventListener('click', function () {
-          // Play sound effect
+    
+      renderTeamBoxContainer(teams);
+    
+      document.querySelectorAll("td[data-cat]").forEach(td => {
+        td.addEventListener("click", function () {
           clickSound.currentTime = 0;
           clickSound.play();
-
-          // ...inside your buildBoard function, in the td click handler...
-          const cat = td.getAttribute('data-cat');
-          const val = td.getAttribute('data-val');
+    
+          const cat = td.getAttribute("data-cat");
+          const val = td.getAttribute("data-val");
           const { clue, answer } = boardData[cat][val];
+    
           clueDiv.textContent = clue;
           answerDiv.textContent = answer;
-          answerDiv.style.display = 'none';
-          // Update only the label, not the whole header
-          document.getElementById('modal-label').textContent = `${cat} for $${val}`;
-          modal.style.display = 'flex';
-          td.classList.add('used');
+          answerDiv.style.display = "none";
+          document.getElementById("modal-label").textContent = `${cat} for $${val}`;
+    
+          modal.style.display = "flex";
+          td.classList.add("used");
         });
       });
+    
       microclickSound.currentTime = 0;
       microclickSound.play();
     }
