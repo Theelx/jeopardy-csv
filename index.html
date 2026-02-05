@@ -168,6 +168,61 @@
       });
     }
 
+    // Auto-shrink #clue text so it fits inside #modal-content
+    // Call this AFTER you set clueDiv.textContent and BEFORE showing the modal.
+    
+    function fitClueText({
+      clueEl = document.getElementById("clue"),
+      containerEl = document.getElementById("modal-content"),
+      minPx = 14,          // smallest font size allowed
+      maxPx = null,        // if null, starts from current computed size
+      stepPx = 1,          // shrink step
+      safetyPaddingPx = 16 // leave room so it doesn't touch edges/buttons
+    } = {}) {
+      if (!clueEl || !containerEl) return;
+    
+      // Reset any previous inline font size so we measure from CSS baseline
+      clueEl.style.fontSize = "";
+    
+      // Determine starting size
+      const computed = window.getComputedStyle(clueEl);
+      let startPx = parseFloat(computed.fontSize);
+      if (Number.isFinite(maxPx)) startPx = maxPx;
+    
+      // Apply start size explicitly so we can decrement deterministically
+      let sizePx = startPx;
+      clueEl.style.fontSize = `${sizePx}px`;
+    
+      // Compute how much vertical space the clue is allowed to occupy.
+      // We use container height minus some padding to account for buttons/margins.
+      const allowedHeight = Math.max(
+        0,
+        containerEl.clientHeight - safetyPaddingPx
+      );
+    
+      // Shrink while overflowing (height or width) and until we hit minPx.
+      // Use scrollHeight to detect vertical overflow; also check horizontal overflow via scrollWidth.
+      while (
+        sizePx > minPx &&
+        (clueEl.scrollHeight > allowedHeight ||
+          clueEl.scrollWidth > containerEl.clientWidth)
+      ) {
+        sizePx -= stepPx;
+        clueEl.style.fontSize = `${sizePx}px`;
+      }
+    }
+    
+    // Optional: refit on window resize while modal is open
+    function enableClueAutoFitOnResize() {
+      const modal = document.getElementById("modal");
+      const handler = () => {
+        if (modal && modal.style.display !== "none") fitClueText();
+      };
+      window.addEventListener("resize", handler);
+      return () => window.removeEventListener("resize", handler);
+    }
+
+
     
     fileInput.addEventListener("change", (event) => {
       const file = event.target.files[0];
@@ -233,6 +288,9 @@
           clueDiv.textContent = clue;
           answerDiv.textContent = answer;
           answerDiv.style.display = "none";
+
+          fitClueText(); // <-- add this line
+          
           document.getElementById("modal-label").textContent = `${cat} for $${val}`;
     
           modal.style.display = "flex";
